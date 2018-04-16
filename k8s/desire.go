@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/julz/cube/launcher"
 	"github.com/julz/cube/opi"
@@ -40,6 +42,11 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 		if _, err = d.Client.CoreV1().Services(d.KubeNamespace).Create(exposeDeployment(lrp, d.KubeNamespace)); err != nil {
 			return err
 		}
+
+		//service, err = d.Client.CoreV1().Services("default").Get(lrp.Name, av1.GetOptions{})
+		//if err != nil {
+		//return err
+		//}
 	}
 
 	return nil
@@ -71,7 +78,7 @@ func toDeployment(lrp opi.LRP) *v1beta1.Deployment {
 		},
 	}
 
-	deployment.Name = lrp.Name
+	deployment.Name = "cf-" + lrp.Name
 	deployment.Spec.Template.Labels = map[string]string{
 		"name": lrp.Name,
 	}
@@ -95,7 +102,7 @@ func exposeDeployment(lrp opi.LRP, namespace string) *v1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"name": lrp.Name,
+				"name": "cf-" + lrp.Name,
 			},
 			SessionAffinity: "None",
 			Type:            "NodePort",
@@ -105,16 +112,36 @@ func exposeDeployment(lrp opi.LRP, namespace string) *v1.Service {
 		},
 	}
 
+	vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"])
+	routes := toRouteString(vcap.AppUris)
+
 	service.APIVersion = "v1"
 	service.Kind = "Service"
-	service.Name = lrp.Name
+	service.Name = "cf-" + lrp.Name
 	service.Namespace = namespace
 	service.Labels = map[string]string{
-		"cube": "cube",
-		"name": lrp.Name,
+		"cube":   "cube",
+		"name":   lrp.Name,
+		"routes": routes,
 	}
 
 	return service
+}
+
+type VcapApp struct {
+	AppName   string   `json:"application_name"`
+	AppUris   []string `json:"application_uris"`
+	SpaceName string   `json:"space_name"`
+}
+
+func parseVcapApplication(vcap string) VcapApp {
+	var vcapApp VcapApp
+	json.Unmarshal([]byte(vcap), &vcapApp)
+	return vcapApp
+}
+
+func toRouteString(routes []string) string {
+	return strings.Join(routes, ",")
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
