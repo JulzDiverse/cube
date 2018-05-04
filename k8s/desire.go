@@ -12,11 +12,12 @@ import (
 )
 
 type Desirer struct {
-	Client *kubernetes.Clientset
+	KubeNamespace string
+	Client        *kubernetes.Clientset
 }
 
 func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
-	deployments, err := d.Client.AppsV1beta1().Deployments("default").List(av1.ListOptions{})
+	deployments, err := d.Client.AppsV1beta1().Deployments(d.KubeNamespace).List(av1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -31,12 +32,12 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			continue
 		}
 
-		if _, err := d.Client.AppsV1beta1().Deployments("default").Create(toDeployment(lrp)); err != nil {
+		if _, err := d.Client.AppsV1beta1().Deployments(d.KubeNamespace).Create(toDeployment(lrp)); err != nil {
 			// fixme: this should be a multi-error and deferred
 			return err
 		}
 
-		if _, err = d.Client.CoreV1().Services("default").Create(exposeDeployment(lrp)); err != nil {
+		if _, err = d.Client.CoreV1().Services(d.KubeNamespace).Create(exposeDeployment(lrp, d.KubeNamespace)); err != nil {
 			return err
 		}
 	}
@@ -83,7 +84,7 @@ func toDeployment(lrp opi.LRP) *v1beta1.Deployment {
 	return deployment
 }
 
-func exposeDeployment(lrp opi.LRP) *v1.Service {
+func exposeDeployment(lrp opi.LRP, namespace string) *v1.Service {
 	service := &v1.Service{
 		Spec: v1.ServiceSpec{
 			ExternalTrafficPolicy: "Cluster",
@@ -107,7 +108,7 @@ func exposeDeployment(lrp opi.LRP) *v1.Service {
 	service.APIVersion = "v1"
 	service.Kind = "Service"
 	service.Name = lrp.Name
-	service.Namespace = "default"
+	service.Namespace = namespace
 	service.Labels = map[string]string{
 		"cube": "cube",
 		"name": lrp.Name,
