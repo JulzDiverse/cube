@@ -102,6 +102,10 @@ func main() {
 				cli.BoolFlag{
 					Name: "skipSslValidation",
 				},
+				cli.StringFlag{
+					Name:  "namespace",
+					Usage: "name of the kubernetes cluster used for app staging",
+				},
 			},
 			Action: stagingCmd,
 		},
