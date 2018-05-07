@@ -72,6 +72,10 @@ func main() {
 					Name:  "config",
 					Usage: "Path to cube config file",
 				},
+				cli.StringFlag{
+					Name:  "namespace",
+					Usage: "name of the kubernetes cluster used for app staging",
+				},
 			},
 			Action: syncCmd,
 		},

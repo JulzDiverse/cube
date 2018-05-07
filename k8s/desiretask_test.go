@@ -49,6 +49,12 @@ var _ = Describe("Desiretask", func() {
 		return names
 	}
 
+	listJobs := func() []bv1.Job {
+		list, err := client.BatchV1().Jobs(namespace).List(av1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		return list.Items
+	}
+
 	BeforeEach(func() {
 		config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(os.Getenv("HOME"), ".kube", "config"))
 		if err != nil {
@@ -86,6 +92,8 @@ var _ = Describe("Desiretask", func() {
 					panic(err)
 				}
 			}
+
+			Eventually(listJobs, 5*time.Second).Should(BeEmpty())
 		})
 
 		getJobNames := func(jobs *bv1.JobList) []string {
@@ -99,7 +107,6 @@ var _ = Describe("Desiretask", func() {
 
 		It("creates jobs for every task in the array", func() {
 			Expect(desirer.Desire(context.Background(), tasks)).To(Succeed())
-
 			jobs, err := client.BatchV1().Jobs(namespace).List(av1.ListOptions{})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -116,12 +123,8 @@ var _ = Describe("Desiretask", func() {
 			for _, taskName := range getTaskNames() {
 				Expect(desirer.DeleteJob(taskName)).To(Succeed())
 			}
-			time.Sleep(1 * time.Second)
 
-			jobs, err := client.BatchV1().Jobs(namespace).List(av1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(jobs.Items).To(BeEmpty())
+			Eventually(listJobs, 5*time.Second).Should(BeEmpty())
 		})
 	})
-
 })

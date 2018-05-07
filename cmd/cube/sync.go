@@ -124,7 +124,7 @@ func setConfigFromCLI(c *cli.Context) *cube.SyncConfig {
 	return &cube.SyncConfig{
 		Properties: cube.SyncProperties{
 			KubeConfig:         c.String("kubeconfig"),
-			KubeNamespace:      "default",
+			KubeNamespace:      c.String("namespace"),
 			RegistryEndpoint:   "http://127.0.0.1:8080",
 			Backend:            c.String("backend"),
 			CcApi:              c.String("ccApi"),
