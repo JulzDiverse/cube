@@ -1,16 +1,13 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/JulzDiverse/cfclient"
 	"github.com/julz/cube"
