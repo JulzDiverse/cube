@@ -64,9 +64,14 @@ func syncCmd(c *cli.Context) {
 	log := lager.NewLogger("sync")
 	log.RegisterSink(lager.NewWriterSink(os.Stdout, lager.DEBUG))
 
+	desirer := &k8s.Desirer{
+		KubeNamespace: conf.Properties.KubeNamespace,
+		Client:        clientset,
+	}
+
 	converger := sink.Converger{
 		Converter:   sink.ConvertFunc(sink.Convert),
-		Desirer:     &k8s.Desirer{Client: clientset},
+		Desirer:     desirer,
 		CfClient:    cfClient,
 		Client:      client,
 		Logger:      log,
@@ -119,6 +124,7 @@ func setConfigFromCLI(c *cli.Context) *cube.SyncConfig {
 	return &cube.SyncConfig{
 		Properties: cube.SyncProperties{
 			KubeConfig:         c.String("kubeconfig"),
+			KubeNamespace:      c.String("namespace"),
 			RegistryEndpoint:   "http://127.0.0.1:8080",
 			Backend:            c.String("backend"),
 			CcApi:              c.String("ccApi"),
