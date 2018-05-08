@@ -22,7 +22,7 @@ type Desirer struct {
 func NewDesirer(client *kubernetes.Clientset, kubeEndpoint string) *Desirer {
 	return &Desirer{
 		Client:            client,
-		ingressController: NewIngressController(client, kubeEndpoint),
+		ingressController: NewIngressController(&ExtensionsIngressClient{client.ExtensionsV1beta1()}, kubeEndpoint),
 	}
 }
 
@@ -52,7 +52,7 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			return err
 		}
 
-		if err = d.ingressController.UpdateIngress(lrp, vcap, d.KubeNamespace); err != nil {
+		if err = d.ingressController.updateIngress(lrp, vcap, d.KubeNamespace); err != nil {
 			//UpdateIngress(d.Client.Ingresses(namespace))
 			return err
 		}
