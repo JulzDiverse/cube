@@ -5,7 +5,11 @@ import (
 
 	"github.com/julz/cube/opi"
 	ext "k8s.io/api/extensions/v1beta1"
+
+	av1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	//"k8s.io/client-go/kubernetes"
+	kubernetes "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 )
 
 const (
@@ -14,28 +18,47 @@ const (
 )
 
 type IngressController struct {
-	Client *kubernetes.Clientset
+	client kubernetes.IngressInterface
+	//client       kubernetes.Interface
+	kubeEndpoint string
 }
 
-func (i *IngressController) UpdateIngress(lrp opi.LRP, vcap VcapApp) error {
-	if ingress, err = d.Client.ExtensionsV1beta1().Ingresses("default").Get("eririni", av1.GetOptions{}); err != nil {
-		return err //TODO: if ingress not found create it
+func NewIngressController(client kubernetes.IngressInterface, kubeEndpoint string) *IngressController {
+	return &IngressController{
+		client:       client,
+		kubeEndpoint: kubeEndpoint,
+	}
+}
+
+func (i *IngressController) UpdateIngress(lrp opi.LRP, vcap VcapApp, namespace string) {
+	//TODO
+}
+
+//func (i *IngressController) updateIngressNamespace(namespace string) {
+//i.client = i.clientset.v1beta1().Ingresses(namespace)
+//}
+
+func (i *IngressController) updateIngressRules(lrp opi.LRP, vcap VcapApp, namespace string) error {
+	ingress, err := i.client.Get("eririni", av1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
-	ingress.Spec.TLS[0].Hosts = append(ing.Spec.TLS[0].Hosts, fmt.Sprintf("%s.%s", vcap.AppName, "cube-kube.uk-south.containers.mybluemix.net")) //TODO parameterize and name TLS array
-	rule := createIngressRule(vcap)
+	//"cube-kube.uk-south.containers.mybluemix.net"
+	ingress.Spec.TLS[0].Hosts = append(ingress.Spec.TLS[0].Hosts, fmt.Sprintf("%s.%s", vcap.AppName, i.kubeEndpoint))
+	rule := createIngressRule(lrp, vcap, i.kubeEndpoint)
 	ingress.Spec.Rules = append(ingress.Spec.Rules, rule)
 
-	if _, err = d.Client.ExtensionsV1beta1().Ingresses("default").Update(ingress); err != nil {
+	if _, err = i.client.Update(ingress); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func _createIngressRule(vcap VcapApp) ext.IngressRule {
+func createIngressRule(lrp opi.LRP, vcap VcapApp, kubeEndpoint string) ext.IngressRule {
 	rule := ext.IngressRule{
-		Host: fmt.Sprintf("%s.%s", vcap.AppName, "cube-kube.uk-south.containers.mybluemix.net"), //TODO parameterize
+		Host: fmt.Sprintf("%s.%s", vcap.AppName, kubeEndpoint),
 	}
 
 	rule.HTTP = &ext.HTTPIngressRuleValue{
