@@ -52,7 +52,7 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			return err
 		}
 
-		if err = d.ingressController.UpdateIngress(lrp, vcap); err != nil {
+		if err = d.ingressController.UpdateIngress(d.KubeNamespace, lrp, vcap); err != nil {
 			return err
 		}
 	}
