@@ -3,29 +3,26 @@ package k8s
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/julz/cube/launcher"
 	"github.com/julz/cube/opi"
 	"k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
-	ext "k8s.io/api/extensions/v1beta1"
 	av1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 )
 
 type Desirer struct {
 	KubeNamespace     string
 	Client            *kubernetes.Clientset
-	ingressController IngressController
+	ingressController *IngressManager
 }
 
 func NewDesirer(client *kubernetes.Clientset) *Desirer {
 	return &Desirer{
 		Client:            client,
-		ingressController: IngressController{client},
+		ingressController: NewIngressManager(client, "cube-kube.uk-south.containers.mybluemix.net"), //TODO parameterize
 	}
 }
 
@@ -55,7 +52,7 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			return err
 		}
 
-		if _, err = d.ingressController.UpdateIngress(lrp, vcap); err != nil {
+		if err = d.ingressController.UpdateIngress(lrp, vcap); err != nil {
 			return err
 		}
 	}

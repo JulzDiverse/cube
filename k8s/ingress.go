@@ -5,7 +5,9 @@ import (
 
 	"github.com/julz/cube/opi"
 	ext "k8s.io/api/extensions/v1beta1"
+	av1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -13,29 +15,39 @@ const (
 	INGRESS_API_VERSION = "extensions/v1beta1"
 )
 
-type IngressController struct {
-	Client *kubernetes.Clientset
+type IngressManager struct {
+	client   kubernetes.Interface
+	endpoint string
 }
 
-func (i *IngressController) UpdateIngress(lrp opi.LRP, vcap VcapApp) error {
-	if ingress, err = d.Client.ExtensionsV1beta1().Ingresses("default").Get("eririni", av1.GetOptions{}); err != nil {
-		return err //TODO: if ingress not found create it
+func NewIngressManager(client kubernetes.Interface, kubeEndpoint string) *IngressManager {
+	return &IngressManager{
+		client:   client,
+		endpoint: kubeEndpoint,
 	}
+}
 
-	ingress.Spec.TLS[0].Hosts = append(ing.Spec.TLS[0].Hosts, fmt.Sprintf("%s.%s", vcap.AppName, "cube-kube.uk-south.containers.mybluemix.net")) //TODO parameterize and name TLS array
-	rule := createIngressRule(vcap)
+func (i *IngressManager) UpdateIngress(lrp opi.LRP, vcap VcapApp) error {
+	ingress, err := i.client.ExtensionsV1beta1().Ingresses("default").Get("eririni", av1.GetOptions{})
+	if err != nil {
+		//TODO: CreateIngress
+		return err
+	}
+	//
+	ingress.Spec.TLS[0].Hosts = append(ingress.Spec.TLS[0].Hosts, fmt.Sprintf("%s.%s", vcap.AppName, i.endpoint))
+	rule := createIngressRule(lrp, vcap, i.endpoint)
 	ingress.Spec.Rules = append(ingress.Spec.Rules, rule)
 
-	if _, err = d.Client.ExtensionsV1beta1().Ingresses("default").Update(ingress); err != nil {
+	if _, err = i.client.ExtensionsV1beta1().Ingresses("default").Update(ingress); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func _createIngressRule(vcap VcapApp) ext.IngressRule {
+func createIngressRule(lrp opi.LRP, vcap VcapApp, kubeEndpoint string) ext.IngressRule {
 	rule := ext.IngressRule{
-		Host: fmt.Sprintf("%s.%s", vcap.AppName, "cube-kube.uk-south.containers.mybluemix.net"), //TODO parameterize
+		Host: fmt.Sprintf("%s.%s", vcap.AppName, kubeEndpoint),
 	}
 
 	rule.HTTP = &ext.HTTPIngressRuleValue{
@@ -53,13 +65,18 @@ func _createIngressRule(vcap VcapApp) ext.IngressRule {
 	return rule
 }
 
-func (i *IngressController) CreateIngress(namespace string) *ext.Ingress {
+func (i *IngressManager) CreateIngress(namespace string) error {
 	ingress := &ext.Ingress{}
 
-	ingress.APIVersion = INGRESS_NAME
+	ingress.APIVersion = INGRESS_API_VERSION
 	ingress.Kind = "Ingress"
-	ingress.Name = INGRESS_API_VERSION
+	ingress.Name = INGRESS_NAME
 	ingress.Namespace = namespace
 
-	return ingress
+	_, err := i.client.ExtensionsV1beta1().Ingresses(namespace).Create(ingress)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
