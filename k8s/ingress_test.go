@@ -112,8 +112,8 @@ var _ = Describe("Ingress", func() {
 		createIngress := func(name, namespace string) *ext.Ingress {
 			ingress := &ext.Ingress{}
 
-			ingress.APIVersion = "extensions/v1beta1"
-			ingress.Kind = "Ingress"
+			ingress.APIVersion = ingressAPIVersion
+			ingress.Kind = ingressKind
 			ingress.Name = name
 			ingress.Namespace = namespace
 
