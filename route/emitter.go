@@ -7,18 +7,35 @@ import (
 	nats "github.com/nats-io/go-nats"
 )
 
-type RouteEmitter struct {
+const publisherSubject = "router.register"
+
+type Publisher interface {
+	Publish(subj string, data []byte) error
+}
+
+type NATSPublisher struct {
 	NatsClient *nats.Conn
-	Work       chan []RegistryMessage
+}
+
+func (p *NATSPublisher) Publish(subj string, data []byte) error {
+	return p.NatsClient.Publish(subj, data)
+}
+
+type RouteEmitter struct {
+	Publisher Publisher
+	Scheduler TaskScheduler
+	Work      <-chan []RegistryMessage
 }
 
 func (r *RouteEmitter) Start() {
-	for {
+	r.Scheduler.Schedule(func() error {
 		select {
 		case batch := <-r.Work:
 			go r.emit(batch)
 		}
-	}
+
+		return nil
+	})
 }
 
 func (r *RouteEmitter) emit(batch []RegistryMessage) {
@@ -26,9 +43,10 @@ func (r *RouteEmitter) emit(batch []RegistryMessage) {
 		routeJson, err := json.Marshal(route)
 		if err != nil {
 			fmt.Println("Faild to marshal route message:", err.Error())
+			continue
 		}
 
-		if err = r.NatsClient.Publish("router.register", routeJson); err != nil {
+		if err = r.Publisher.Publish(publisherSubject, routeJson); err != nil {
 			fmt.Println("failed to publish route:", err.Error())
 		}
 	}
