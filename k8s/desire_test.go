@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/julz/cube"
 	"github.com/julz/cube/k8s"
+	"github.com/julz/cube/k8s/k8sfakes"
 	"github.com/julz/cube/opi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,10 +22,11 @@ import (
 // NOTE: this test requires a minikube to be set up and targeted in ~/.kube/config
 var _ = Describe("Desiring some LRPs", func() {
 	var (
-		client    *kubernetes.Clientset
-		desirer   *k8s.Desirer
-		namespace string
-		lrps      []opi.LRP
+		client         *kubernetes.Clientset
+		ingressManager *k8sfakes.FakeIngressManager
+		desirer        *k8s.Desirer
+		namespace      string
+		lrps           []opi.LRP
 	)
 
 	namespaceExists := func(name string) bool {
@@ -72,10 +75,8 @@ var _ = Describe("Desiring some LRPs", func() {
 			createNamespace(namespace)
 		}
 
-		desirer = &k8s.Desirer{
-			KubeNamespace: namespace,
-			Client:        client,
-		}
+		ingressManager = new(k8sfakes.FakeIngressManager)
+		desirer = k8s.NewDesirer(client, namespace, ingressManager)
 	})
 
 	AfterEach(func() {
@@ -84,7 +85,8 @@ var _ = Describe("Desiring some LRPs", func() {
 				panic(err)
 			}
 
-			if err := client.CoreV1().Services(namespace).Delete(appName, &metav1.DeleteOptions{}); err != nil {
+			serviceName := cube.GetInternalServiceName(appName)
+			if err := client.CoreV1().Services(namespace).Delete(serviceName, &metav1.DeleteOptions{}); err != nil {
 				panic(err)
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	ext "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/julz/cube"
 	. "github.com/julz/cube/route"
 	"github.com/julz/cube/route/routefakes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -84,7 +85,7 @@ var _ = Describe("Collector", func() {
 			}
 
 			BeforeEach(func() {
-				serviceName = fmt.Sprintf("cf-%s", appName)
+				serviceName = cube.GetInternalServiceName(appName)
 				host = fmt.Sprintf("%s.%s", serviceName, "kube-endpoint")
 				routes = []string{"route1.app.com", "route2.app.com"}
 

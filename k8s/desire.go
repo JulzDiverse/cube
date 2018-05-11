@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/julz/cube"
 	"github.com/julz/cube/launcher"
 	"github.com/julz/cube/opi"
 	"k8s.io/api/apps/v1beta1"
@@ -14,16 +15,16 @@ import (
 )
 
 type Desirer struct {
-	KubeNamespace     string
-	Client            *kubernetes.Clientset
-	ingressController *IngressManager
+	KubeNamespace  string
+	Client         *kubernetes.Clientset
+	ingressManager IngressManager
 }
 
-func NewDesirer(client *kubernetes.Clientset, kubeEndpoint string, kubeNamespace string) *Desirer {
+func NewDesirer(client *kubernetes.Clientset, kubeNamespace string, ingressManager IngressManager) *Desirer {
 	return &Desirer{
-		KubeNamespace:     kubeNamespace,
-		Client:            client,
-		ingressController: NewIngressManager(client, kubeEndpoint),
+		KubeNamespace:  kubeNamespace,
+		Client:         client,
+		ingressManager: ingressManager,
 	}
 }
 
@@ -43,7 +44,6 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			continue
 		}
 
-		vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"]) //TODO
 		if _, err := d.Client.AppsV1beta1().Deployments(d.KubeNamespace).Create(toDeployment(lrp)); err != nil {
 			// fixme: this should be a multi-error and deferred
 			return err
@@ -53,9 +53,10 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			return err
 		}
 
-		if err = d.ingressController.UpdateIngress(d.KubeNamespace, lrp, vcap); err != nil {
-			return err
-		}
+		// vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"]) //TODO
+		// if err = d.ingressManager.UpdateIngress(d.KubeNamespace, lrp, vcap); err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil
@@ -125,7 +126,7 @@ func exposeDeployment(lrp opi.LRP, namespace string) *v1.Service {
 
 	service.APIVersion = "v1"
 	service.Kind = "Service"
-	service.Name = "cf-" + lrp.Name //Prefix service as the lrp.Name could start with numerical characters, which is not allowed
+	service.Name = cube.GetInternalServiceName(lrp.Name)
 	service.Namespace = namespace
 	service.Labels = map[string]string{
 		"cube":   "cube",
