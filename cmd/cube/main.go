@@ -76,6 +76,10 @@ func main() {
 					Name:  "namespace",
 					Usage: "name of the kubernetes cluster used for app staging",
 				},
+				cli.StringFlag{
+					Name:  "kubeEndpoint",
+					Usage: "endpoint of the kubernetes cluster used for app staging",
+				},
 			},
 			Action: syncCmd,
 		},

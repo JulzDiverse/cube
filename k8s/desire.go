@@ -19,10 +19,11 @@ type Desirer struct {
 	ingressController *IngressManager
 }
 
-func NewDesirer(client *kubernetes.Clientset) *Desirer {
+func NewDesirer(client *kubernetes.Clientset, kubeEndpoint string, kubeNamespace string) *Desirer {
 	return &Desirer{
+		KubeNamespace:     kubeNamespace,
 		Client:            client,
-		ingressController: NewIngressManager(client, "cube-kube.uk-south.containers.mybluemix.net"), //TODO parameterize
+		ingressController: NewIngressManager(client, kubeEndpoint),
 	}
 }
 
