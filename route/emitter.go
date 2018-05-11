@@ -3,6 +3,7 @@ package route
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	nats "github.com/nats-io/go-nats"
 )
@@ -25,6 +26,18 @@ type RouteEmitter struct {
 	Publisher Publisher
 	Scheduler TaskScheduler
 	Work      <-chan []RegistryMessage
+}
+
+func NewRouteEmitter(nats *nats.Conn, workChannel chan []RegistryMessage, emitInterval int) *RouteEmitter {
+	publisher := &NATSPublisher{NatsClient: nats}
+	scheduler := &TickerTaskScheduler{
+		Ticker: time.NewTicker(time.Second * time.Duration(emitInterval)),
+	}
+	return &RouteEmitter{
+		Publisher: publisher,
+		Scheduler: scheduler,
+		Work:      workChannel,
+	}
 }
 
 func (r *RouteEmitter) Start() {
