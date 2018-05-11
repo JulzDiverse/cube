@@ -2,6 +2,7 @@ package route_test
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/julz/cube/route/routefakes"
@@ -80,8 +81,7 @@ var _ = Describe("Emitter", func() {
 			emitter.Start()
 		})
 
-		Context("When emitter is started", func() {
-
+		assertInteractionsWithFakes := func() {
 			It("should use the scheduler", func() {
 				Expect(scheduler.ScheduleCallCount()).To(Equal(1))
 			})
@@ -100,6 +100,18 @@ var _ = Describe("Emitter", func() {
 					Expect(publishData).To(ContainElement(e))
 				}
 			})
+		}
+
+		Context("When emitter is started", func() {
+			assertInteractionsWithFakes()
+		})
+
+		Context("When the publisher throws an error", func() {
+			BeforeEach(func() {
+				publisher.PublishReturns(errors.New("Failed to publish message"))
+			})
+
+			assertInteractionsWithFakes()
 		})
 	})
 })
