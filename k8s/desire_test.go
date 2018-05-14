@@ -2,6 +2,7 @@ package k8s_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -96,6 +97,8 @@ var _ = Describe("Desiring some LRPs", func() {
 			{Name: "app0", Image: "busybox", TargetInstances: 1, Command: []string{""}, Env: envFor(vcapAppNames[0], lrpUris[0])},
 			{Name: "app1", Image: "busybox", TargetInstances: 3, Command: []string{""}, Env: envFor(vcapAppNames[1], lrpUris[1])},
 		}
+
+		ingressManager = new(k8sfakes.FakeIngressManager)
 	})
 
 	JustBeforeEach(func() {
@@ -103,21 +106,7 @@ var _ = Describe("Desiring some LRPs", func() {
 			createNamespace(namespace)
 		}
 
-		ingressManager = new(k8sfakes.FakeIngressManager)
 		desirer = k8s.NewDesirer(client, namespace, ingressManager)
-	})
-
-	AfterEach(func() {
-		for _, appName := range getLRPNames() {
-			if err := client.AppsV1beta1().Deployments(namespace).Delete(appName, &metav1.DeleteOptions{}); err != nil {
-				panic(err)
-			}
-
-			serviceName := cube.GetInternalServiceName(appName)
-			if err := client.CoreV1().Services(namespace).Delete(serviceName, &metav1.DeleteOptions{}); err != nil {
-				panic(err)
-			}
-		}
 	})
 
 	Context("When a LPP is desired", func() {
@@ -140,6 +129,20 @@ var _ = Describe("Desiring some LRPs", func() {
 		}
 
 		Context("When it succeeds", func() {
+
+			AfterEach(func() {
+				for _, appName := range getLRPNames() {
+					if err := client.AppsV1beta1().Deployments(namespace).Delete(appName, &metav1.DeleteOptions{}); err != nil {
+						panic(err)
+					}
+
+					serviceName := cube.GetInternalServiceName(appName)
+					if err := client.CoreV1().Services(namespace).Delete(serviceName, &metav1.DeleteOptions{}); err != nil {
+						panic(err)
+					}
+				}
+			})
+
 			It("Creates deployments for every LRP in the array", func() {
 				Expect(desirer.Desire(context.Background(), lrps)).To(Succeed())
 
@@ -183,6 +186,22 @@ var _ = Describe("Desiring some LRPs", func() {
 					Expect(desirer.Desire(context.Background(), lrps)).To(Succeed())
 				}
 			})
+		})
+
+		Context("When the IngressManager failes to update", func() {
+
+			var expectedErr error
+
+			BeforeEach(func() {
+				expectedErr = errors.New("failed to update ingress")
+				ingressManager.UpdateIngressReturns(expectedErr)
+			})
+
+			It("Propagates the error", func() {
+				actualErr := desirer.Desire(context.Background(), lrps)
+				Expect(actualErr).To(Equal(expectedErr))
+			})
+
 		})
 
 	})

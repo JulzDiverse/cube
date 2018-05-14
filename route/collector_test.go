@@ -38,13 +38,24 @@ var _ = Describe("Collector", func() {
 				tlsPort   = 443
 			)
 
-			createService := func(appName, routes string) *v1.Service {
+			// handcraft json in order not to mirror the production implementation
+			asJsonArray := func(uris []string) string {
+				quotedUris := []string{}
+				for _, uri := range uris {
+					quotedUris = append(quotedUris, fmt.Sprintf("\"%s\"", uri))
+				}
+
+				return fmt.Sprintf("[%s]", strings.Join(quotedUris, ","))
+			}
+
+			createService := func(appName string) *v1.Service {
 				service := &v1.Service{}
 
 				service.Name = serviceName
 				service.Namespace = namespace
-				service.Labels = map[string]string{
-					"routes": routes,
+
+				service.Annotations = map[string]string{
+					"routes": asJsonArray(routes),
 				}
 
 				return service
@@ -75,7 +86,7 @@ var _ = Describe("Collector", func() {
 
 			createFakes := func() {
 				ingress := createIngress(serviceName)
-				service := createService(appName, strings.Join(routes, ","))
+				service := createService(appName)
 
 				_, err := fakeClient.CoreV1().Services(namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
@@ -106,7 +117,8 @@ var _ = Describe("Collector", func() {
 
 				collector.Start()
 				task := scheduler.ScheduleArgsForCall(0)
-				task()
+				err := task()
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("should use the scheduler to collect routes", func() {

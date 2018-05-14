@@ -125,12 +125,6 @@ func exposeDeployment(lrp opi.LRP, namespace string) (*v1.Service, error) {
 		},
 	}
 
-	vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"])
-	routes, err := toRouteString(vcap.AppUris)
-	if err != nil {
-		return nil, err
-	}
-
 	service.APIVersion = "v1"
 	service.Kind = "Service"
 	service.Name = cube.GetInternalServiceName(lrp.Name)
@@ -140,6 +134,11 @@ func exposeDeployment(lrp opi.LRP, namespace string) (*v1.Service, error) {
 		"name": lrp.Name,
 	}
 
+	vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"])
+	routes, err := toRouteString(vcap.AppUris)
+	if err != nil {
+		return nil, err
+	}
 	service.Annotations = map[string]string{
 		"routes": string(routes),
 	}
