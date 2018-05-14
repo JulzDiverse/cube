@@ -53,10 +53,10 @@ func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 			return err
 		}
 
-		// vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"]) //TODO
-		// if err = d.ingressManager.UpdateIngress(d.KubeNamespace, lrp, vcap); err != nil {
-		// 	return err
-		// }
+		vcap := parseVcapApplication(lrp.Env["VCAP_APPLICATION"])
+		if err = d.ingressManager.UpdateIngress(d.KubeNamespace, lrp, vcap); err != nil {
+			return err
+		}
 	}
 
 	return nil

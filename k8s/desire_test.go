@@ -2,6 +2,7 @@ package k8s_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -27,6 +28,7 @@ var _ = Describe("Desiring some LRPs", func() {
 		desirer        *k8s.Desirer
 		namespace      string
 		lrps           []opi.LRP
+		vcapAppNames   []string
 	)
 
 	namespaceExists := func(name string) bool {
@@ -52,6 +54,12 @@ var _ = Describe("Desiring some LRPs", func() {
 		return names
 	}
 
+	envFor := func(appName string) map[string]string {
+		env := make(map[string]string, 2)
+		env["VCAP_APPLICATION"] = fmt.Sprintf("{ \"application_name\": \"%s\" }", appName)
+		return env
+	}
+
 	BeforeEach(func() {
 		config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(os.Getenv("HOME"), ".kube", "config"))
 		if err != nil {
@@ -64,9 +72,11 @@ var _ = Describe("Desiring some LRPs", func() {
 		}
 
 		namespace = "testing"
+		vcapAppNames = []string{"vcap-app-name0", "vcap-app-name1"}
+
 		lrps = []opi.LRP{
-			{Name: "app0", Image: "busybox", TargetInstances: 1, Command: []string{""}},
-			{Name: "app1", Image: "busybox", TargetInstances: 3, Command: []string{""}},
+			{Name: "app0", Image: "busybox", TargetInstances: 1, Command: []string{""}, Env: envFor(vcapAppNames[0])},
+			{Name: "app1", Image: "busybox", TargetInstances: 3, Command: []string{""}, Env: envFor(vcapAppNames[1])},
 		}
 	})
 
@@ -113,12 +123,28 @@ var _ = Describe("Desiring some LRPs", func() {
 			Expect(getDeploymentNames(deployments)).To(ConsistOf(getLRPNames()))
 		})
 
-		It("creates services for every deployment", func() {
+		It("Creates services for every deployment", func() {
 			Expect(desirer.Desire(context.Background(), lrps)).To(Succeed())
 
 			services, err := client.CoreV1().Services(namespace).List(av1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(services.Items).To(HaveLen(len(lrps)))
+		})
+
+		It("Ads an ingress rule for each app", func() {
+			Expect(desirer.Desire(context.Background(), lrps)).To(Succeed())
+
+			Expect(ingressManager.UpdateIngressCallCount()).To(Equal(len(lrps)))
+
+			actualNamespace, actualLrp, actualVcapApp := ingressManager.UpdateIngressArgsForCall(0)
+			Expect(actualNamespace).To(Equal(namespace))
+			Expect(actualLrp).To(Equal(lrps[0]))
+			Expect(actualVcapApp.AppName).To(Equal(vcapAppNames[0]))
+
+			actualNamespace, actualLrp, actualVcapApp = ingressManager.UpdateIngressArgsForCall(1)
+			Expect(actualNamespace).To(Equal(namespace))
+			Expect(actualLrp).To(Equal(lrps[1]))
+			Expect(actualVcapApp.AppName).To(Equal(vcapAppNames[1]))
 		})
 
 		It("Doesn't error when the deployment already exists", func() {
