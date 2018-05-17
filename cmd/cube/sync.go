@@ -70,6 +70,12 @@ func syncCmd(c *cli.Context) {
 	ingressManager := k8s.NewIngressManager(clientset, kubeEndpoint)
 	desirer := k8s.NewDesirer(clientset, kubeNamespace, ingressManager)
 
+	lrpClientset, err := kubernetes.NewForConfig(config)
+	exitWithError(err)
+	lrpIngress := k8s.NewIngressManager(lrpClientset, kubeEndpoint)
+	lrpDesirer := k8s.NewDesirer(lrpClientset, kubeNamespace, lrpIngress)
+	runLRPHandler(lrpDesirer)
+
 	converger := sink.Converger{
 		Converter:   sink.ConvertFunc(sink.Convert),
 		Desirer:     desirer,

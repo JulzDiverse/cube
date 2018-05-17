@@ -27,6 +27,25 @@ func NewDesirer(client *kubernetes.Clientset, kubeNamespace string, ingressManag
 	}
 }
 
+func (d *Desirer) List(ctx context.Context) ([]opi.LRP, error) {
+	deployments, err := d.Client.AppsV1beta1().Deployments(d.KubeNamespace).List(av1.ListOptions{})
+	if err != nil {
+		return []opi.LRP{}, err
+	}
+
+	return toLRPs(deployments), nil
+}
+
+func toLRPs(deployments *v1beta1.DeploymentList) []opi.LRP {
+	result := make([]opi.LRP, len(deployments.Items))
+	for i, d := range deployments.Items {
+		result[i] = opi.LRP{
+			Name: d.Name,
+		}
+	}
+	return result
+}
+
 func (d *Desirer) Desire(ctx context.Context, lrps []opi.LRP) error {
 	deployments, err := d.Client.AppsV1beta1().Deployments(d.KubeNamespace).List(av1.ListOptions{})
 	if err != nil {
