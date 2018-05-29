@@ -7,21 +7,23 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"code.cloudfoundry.org/runtimeschema/cc_messages"
+
 	"github.com/julienschmidt/httprouter"
-	"github.com/julz/cube/k8s"
 	"github.com/julz/cube/opi"
+	"github.com/julz/cube/sink"
 )
 
-func runLRPHandler(desirer *k8s.Desirer) {
-	handler := createHandler(desirer)
-	go http.ListenAndServe("0.0.0.0:8076", handler)
+func runLRPHandler(c *sink.Converger) {
+	handler := createHandler(c)
+	http.ListenAndServe("0.0.0.0:8076", handler)
 }
 
-func createHandler(desirer *k8s.Desirer) http.Handler {
+func createHandler(c *sink.Converger) http.Handler {
 	handler := httprouter.New()
 
 	lrpHandler := LRPHandler{
-		desirer: desirer,
+		converger: c,
 	}
 	handler.POST("/v1/lrp", lrpHandler.Desire)
 	handler.GET("/v1/lrps", lrpHandler.List)
@@ -30,19 +32,19 @@ func createHandler(desirer *k8s.Desirer) http.Handler {
 }
 
 type ListLRPResponseBody struct {
-	Infos []DesiredLRPSchedulingInfo `json: "desired_lrp_scheduling_infos"`
+	Infos []DesiredLRPSchedulingInfo `json:"desired_lrp_scheduling_infos"`
 }
 
 type DesiredLRPSchedulingInfo struct {
-	Key DesiredLRPKey `json: "desired_lrp_key"`
+	Key DesiredLRPKey `json:"desired_lrp_key"`
 }
 
 type DesiredLRPKey struct {
-	Guid string `json:"process_guid`
+	Guid string `json:"process_guid"`
 }
 
 type LRPHandler struct {
-	desirer *k8s.Desirer
+	converger *sink.Converger
 }
 
 func (l *LRPHandler) Desire(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
@@ -50,22 +52,26 @@ func (l *LRPHandler) Desire(resp http.ResponseWriter, req *http.Request, ps http
 	if err != nil {
 		fmt.Println("failed to read request body", err.Error())
 		resp.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	var lrp opi.LRP
-	if err := json.Unmarshal(body, &lrp); err != nil {
+	var msg cc_messages.DesireAppRequestFromCC
+	if err := json.Unmarshal(body, &msg); err != nil {
 		fmt.Println("failed to deserialize request body", err.Error())
 		resp.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	if err := l.desirer.Desire(context.Background(), []opi.LRP{lrp}); err != nil {
+
+	if err := l.converger.ConvergeOnce(context.Background(), []cc_messages.DesireAppRequestFromCC{msg}); err != nil {
 		fmt.Println("failed to desire lrp", err.Error())
 		resp.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	resp.WriteHeader(http.StatusAccepted)
 }
 
 func (l *LRPHandler) List(resp http.ResponseWriter, req *http.Request, ps httprouter.Params) {
-	lrps, err := l.desirer.List(context.Background())
+	lrps, err := l.converger.Desirer.List(context.Background())
 	if err != nil {
 		fmt.Println("failed to list lrp", err.Error())
 		resp.WriteHeader(http.StatusInternalServerError)

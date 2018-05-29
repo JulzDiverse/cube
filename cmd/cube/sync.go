@@ -34,13 +34,6 @@ func syncCmd(c *cli.Context) {
 		conf = setConfigFromFile(configPath)
 	}
 
-	fetcher := &bulk.CCFetcher{
-		BaseURI:   conf.Properties.CcApi,
-		BatchSize: 50,
-		Username:  conf.Properties.CcUser,
-		Password:  conf.Properties.CcPassword,
-	}
-
 	cfClientConfig = &cfclient.Config{
 		SkipSslValidation: conf.Properties.SkipSslValidation,
 		Username:          conf.Properties.CfUsername,
@@ -70,12 +63,6 @@ func syncCmd(c *cli.Context) {
 	ingressManager := k8s.NewIngressManager(clientset, kubeEndpoint)
 	desirer := k8s.NewDesirer(clientset, kubeNamespace, ingressManager)
 
-	lrpClientset, err := kubernetes.NewForConfig(config)
-	exitWithError(err)
-	lrpIngress := k8s.NewIngressManager(lrpClientset, kubeEndpoint)
-	lrpDesirer := k8s.NewDesirer(lrpClientset, kubeNamespace, lrpIngress)
-	runLRPHandler(lrpDesirer)
-
 	converger := sink.Converger{
 		Converter:   sink.ConvertFunc(sink.Convert),
 		Desirer:     desirer,
@@ -86,9 +73,8 @@ func syncCmd(c *cli.Context) {
 		RegistryIP:  conf.Properties.ExternalAddress, //for external use (kube)
 	}
 
-	cancel := make(chan struct{})
-
-	fetch(fetcher, converger, log, cancel, client)
+	runLRPHandler(&converger)
+	select {}
 }
 
 func fetch(fetcher *bulk.CCFetcher, converger sink.Converger, log lager.Logger, cancel chan struct{}, client *http.Client) {

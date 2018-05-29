@@ -25,6 +25,7 @@ type Task struct {
 
 type Desirer interface {
 	Desire(ctx context.Context, lrps []LRP) error
+	List(ctx context.Context) ([]LRP, error)
 }
 
 type DesireFunc func(ctx context.Context, lrp []LRP) error
